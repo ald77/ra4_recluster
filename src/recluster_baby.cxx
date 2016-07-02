@@ -24,26 +24,20 @@ using namespace fastjet;
 
 namespace{
   string input_file_path = "";
-  string output_dir_path = "";
+  string output_file_path = "";
 }
 
 int main(int argc, char *argv[]){
   GetOptions(argc, argv);
 
   if(input_file_path == "") ERROR("Must provide input file with -i");
-  if(output_dir_path == "") ERROR("Must provide output directory with -o");
+  if(output_file_path == "") ERROR("Must provide output file with -o");
 
   auto pos = input_file_path.rfind("/");
   string file_name = input_file_path;
   if(pos != string::npos){
     file_name = input_file_path.substr(pos+1);
   }
-
-  if(output_dir_path.back() != '/') output_dir_path += "/";
-
-  string output_file_path = output_dir_path + "reclustered_" + file_name;
-
-  if(output_file_path == input_file_path) ERROR("Specified output directory contains original file");
 
   TFile input_file(input_file_path.c_str(), "read");
   if(!input_file.IsOpen()) ERROR("Could not open input file "+input_file_path);
@@ -142,7 +136,7 @@ void GetOptions(int argc, char *argv[]){
   while(true){
     static struct option long_options[] = {
       {"input_file", no_argument, 0, 'i'},
-      {"output_dir", no_argument, 0, 'o'},
+      {"output_file", no_argument, 0, 'o'},
       {0, 0, 0, 0}
     };
 
@@ -158,7 +152,7 @@ void GetOptions(int argc, char *argv[]){
       input_file_path = optarg;
       break;
     case 'o':
-      output_dir_path = optarg;
+      output_file_path = optarg;
       break;
     case 0:
       optname = long_options[option_index].name;

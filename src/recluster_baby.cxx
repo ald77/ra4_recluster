@@ -85,7 +85,7 @@ int main(int argc, char *argv[]){
   
   in_tree->SetBranchAddress("mj14", &mj14_original);
   out_tree->Branch("mj14_original", &mj14_original);
-  out_tree->Branch("mj14", &mj14);
+  out_tree->SetBranchAddress("mj14", &mj14);
   out_tree->Branch("mj14_validation", &mj14_validation);
 
   num_entries = in_tree->GetEntries();
@@ -104,14 +104,17 @@ int main(int argc, char *argv[]){
     jets_no_lep.clear();
     
     for(size_t i = 0; i < jets_pt->size(); ++i){
+      bool pass_jet = jets_pt->at(i) > 30. && fabs(jets_eta->at(i)) <= 2.4;
+      bool pass_lep = jets_islep->at(i);
+      if(!(pass_jet || pass_lep)) continue;
       lv.SetPtEtaPhiM(jets_pt->at(i),
                       jets_eta->at(i),
                       jets_phi->at(i),
                       jets_m->at(i));
       pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
-      
+
       jets_with_lep.push_back(pj);
-      if(!jets_islep->at(i)) jets_no_lep.push_back(pj);
+      if(pass_jet && !pass_lep) jets_no_lep.push_back(pj);
     }
 
     ClusterSequence cs_with_lep(jets_with_lep, jd) , cs_no_lep(jets_no_lep, jd);

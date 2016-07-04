@@ -20,7 +20,8 @@ def Recluster(file_dir):
         out_path = os.path.join(out_dir, rel_path)
         if not os.path.exists(os.path.dirname(out_path)):
             os.makedirs(os.path.dirname(out_path))
-        subprocess.call(["JobSubmit.csh","./run/wrapper.sh","./run/recluster_baby.exe","-i",full_path,"-o",out_path])
+        if not os.path.exists(out_path):
+            subprocess.call(["JobSubmit.csh","./run/wrapper.sh","./run/recluster_baby.exe","-i",full_path,"-o",out_path])
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Reclusters jets for set of files",

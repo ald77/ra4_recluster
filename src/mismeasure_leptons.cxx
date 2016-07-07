@@ -113,6 +113,28 @@ int main(int argc, char *argv[]){
   TTree *out_treeglobal = in_treeglobal->CloneTree(0);
   in_treeglobal->CopyAddresses(out_treeglobal);
 
+  size_t num_configs = p_vals.size() * a_vals.size() * b_vals.size();
+  vector<float> *p_vec = nullptr, *a_vec = nullptr, *b_vec = nullptr;
+  out_treeglobal->Branch("p", &p_vec);
+  out_treeglobal->Branch("a", &a_vec);
+  out_treeglobal->Branch("b", &b_vec);
+
+  size_t iconfig = static_cast<size_t>(-1);
+  p_vec->resize(num_configs);
+  a_vec->resize(num_configs);
+  b_vec->resize(num_configs);
+  for(auto p: p_vals){
+    for(auto a: a_vals){
+      for(auto b: b_vals){
+	++iconfig;
+
+	p_vec->at(iconfig) = p;
+	a_vec->at(iconfig) = a;
+	b_vec->at(iconfig) = b;
+      }
+    }
+  }
+
   int num_entries = in_treeglobal->GetEntries();
   for(int event = 0; event < num_entries; ++event){
     in_treeglobal->GetEntry(event);
@@ -200,7 +222,7 @@ int main(int argc, char *argv[]){
     *mm_met_phi = nullptr,
     *mm_mj14_lep = nullptr,
     *mm_mj14_nolep = nullptr;
-  vector<bool> *mm_jet_islep = nullptr;
+  vector<bool> *mm_jet_islep = nullptr, *mm = nullptr;
 
   out_tree->Branch("mm_jet_index", &mm_jet_index);
   out_tree->Branch("mm_lep_index", &mm_lep_index);
@@ -227,8 +249,8 @@ int main(int argc, char *argv[]){
   out_tree->Branch("mm_met_phi", &mm_met_phi);
   out_tree->Branch("mm_mj14_lep", &mm_mj14_lep);
   out_tree->Branch("mm_mj14_nolep", &mm_mj14_nolep);
+  out_tree->Branch("mm", &mm);
 
-  size_t num_configs = p_vals.size() * a_vals.size() * b_vals.size();
   mm_jet_index->resize(num_configs);
   mm_lep_index->resize(num_configs);
   mm_mu_index->resize(num_configs);
@@ -254,6 +276,7 @@ int main(int argc, char *argv[]){
   mm_met_phi->resize(num_configs);
   mm_mj14_lep->resize(num_configs);
   mm_mj14_nolep->resize(num_configs);
+  mm->resize(num_configs);
 
   //Caching
   vector<int> vint;
@@ -270,7 +293,7 @@ int main(int argc, char *argv[]){
     timer.Iterate();
     in_tree->GetEntry(event);
 
-    size_t iconfig = 0;
+    iconfig = -1;
     for(auto p: p_vals){
       for(auto a: a_vals){
 	for(auto b: b_vals){
@@ -289,6 +312,7 @@ int main(int argc, char *argv[]){
 
 	  if(mod_lep < 0){
 	    //Event unchanged
+	    mm->at(iconfig) = false;
 	    mm_jet_index->at(iconfig) = -1;
 	    mm_lep_index->at(iconfig) = -1;
 	    mm_mu_index->at(iconfig) = -1;
@@ -335,6 +359,7 @@ int main(int argc, char *argv[]){
 	    }
 	  }else{
             //Event changed
+	    mm->at(iconfig) = true;
 
             //Pick a lepton
             int lep_type;
@@ -410,26 +435,30 @@ int main(int argc, char *argv[]){
             mm_jet_islep->at(iconfig) = lep_index >= 0;
             if(lep_index >= 0 && !jets_islep->at(jet_index)){
               //Jet became a lepton
-              mm_njets->at(iconfig) = nleps-1;
+              mm_njets->at(iconfig) = njets-1;
               if(jets_csv->at(jet_index) > 0.8) mm_nbm->at(iconfig) = nbm-1;
               else mm_nbm->at(iconfig) = nbm;
             }else{
               //Jet is not a lepton or already was a lepton
-              mm_njets->at(iconfig) = nleps;
+              mm_njets->at(iconfig) = njets;
               mm_nbm->at(iconfig) = nbm;
             }
 
             //Recompute HT and MJ
             mm_ht->at(iconfig) = 0.;
+	    jets_with_lep.clear();
+	    jets_no_lep.clear();
             for(size_t i = 0; i < jets_pt->size(); ++i){
+	      bool pass_lep;
               if(static_cast<int>(i) != jet_index){
                 lv.SetPtEtaPhiM(jets_pt->at(i), jets_eta->at(i),
                                 jets_phi->at(i), jets_m->at(i));
+		pass_lep = jets_islep->at(i);
               }else{
                 lv = new_jet;
+		pass_lep = mm_jet_islep->at(iconfig);
               }
               bool pass_jet = lv.Pt()>30. && fabs(lv.Eta())<=2.4;
-              bool pass_lep = jets_islep->at(i);
               if(!(pass_jet || pass_lep)) continue;
               pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
 
@@ -450,15 +479,27 @@ int main(int argc, char *argv[]){
             //Modify MET and mT
             float met_x = met*cos(met_phi) + (old_lep.Px()-new_lep.Px());
             float met_y = met*sin(met_phi) + (old_lep.Py()-new_lep.Py());
+	    float lep_pt = new_lep.Pt(), lep_phi = new_lep.Phi();
+	    for(size_t i = 0; i < leps_pt->size(); ++i){
+	      if(static_cast<int>(i) == mm_lep_index->at(iconfig)) continue;
+	      if(leps_pt->at(i) > lep_pt){
+		lep_pt = leps_pt->at(i);
+		lep_phi = leps_phi->at(i);
+	      }
+	    }
             mm_met->at(iconfig) = hypot(met_x, met_y);
             mm_met_phi->at(iconfig) = atan2(met_y, met_x);
-            mm_mt->at(iconfig) = MT(new_lep.Pt(), new_lep.Phi(),
-                                    mm_met->at(iconfig), mm_met_phi->at(iconfig));
+            mm_mt->at(iconfig) = mm_nleps->at(iconfig) >= 1
+	      ? MT(lep_pt, lep_phi,
+		   mm_met->at(iconfig), mm_met_phi->at(iconfig))
+	      : -999.;
 	  }
 	}
       }
     }
+    out_tree->Fill();
   }
+  out_tree->Write();
 }
 
 void GetOptions(int argc, char *argv[]){

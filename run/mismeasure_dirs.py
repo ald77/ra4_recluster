@@ -12,7 +12,7 @@ def Mismeasure(file_dir):
     if os.path.isdir(full_path):
         contents = os.listdir(full_path)
         for fd in contents:
-            Recluster(os.path.join(full_path, fd))
+            Mismeasure(os.path.join(full_path, fd))
     elif os.path.isfile(full_path):
         base_path = "/net/cms2/cms2r0/babymaker/babies"
         out_dir = os.path.join(base_path, "mismeasured")
@@ -24,9 +24,9 @@ def Mismeasure(file_dir):
             subprocess.call(["JobSubmit.csh","./run/wrapper.sh","./run/mismeasure_leptons.exe","-i",full_path,"-o",out_path])
         
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Reclusters jets for set of files",
+    parser = argparse.ArgumentParser(description="Adds lepton mismeasurements to set of files",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("input", nargs="*", default=[], metavar="INPUT_DIRS", help="List of files and directories to recluster")
+    parser.add_argument("input", nargs="*", default=[], metavar="INPUT_DIRS", help="List of files and directories to mismeasure")
     args = parser.parse_args()
 
     for file_dir in args.input:

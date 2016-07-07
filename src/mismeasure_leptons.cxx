@@ -1,7 +1,5 @@
 #include "mismeasure_leptons.hpp"
 
-#include "recluster_baby.hpp"
-
 #include <stdexcept>
 #include <iostream>
 #include <string>
@@ -57,13 +55,15 @@ namespace{
   }
 
   float Area(float pt){
+    float radius;
     if(pt<50.){
-      return 0.2;
+      radius =  0.2;
     }else if(pt<200.){
-      return 10./pt;
+      radius =  10./pt;
     }else{
-      return 0.05;
+      radius =  0.05;
     }
+    return radius*radius;
   }
 
   int FindJet(float eta, float phi, bool islep_only,

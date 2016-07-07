@@ -66,7 +66,7 @@ namespace{
     return radius*radius;
   }
 
-  int FindJet(float eta, float phi, bool islep_only,
+  int FindJet(float pt, float eta, float phi, bool islep_only,
               const vector<float> &etas,
               const vector<float> &phis,
               const vector<bool> &isleps){
@@ -81,6 +81,7 @@ namespace{
         best_jet = i;
       }
     }
+    if(best_jet == -1 && pt > 30. && fabs(eta)<2.4) best_jet = etas.size();
     return best_jet;
   }
 
@@ -419,26 +420,34 @@ int main(int argc, char *argv[]){
             }
 
             //Modify associated jet
-            int jet_index = FindJet(eta, phi, lep_index>=0 && lep_index<static_cast<int>(leps_pt->size()),
+            int jet_index = FindJet(new_pt, eta, phi, lep_index>=0 && lep_index<static_cast<int>(leps_pt->size()),
                                     *jets_eta, *jets_phi, *jets_islep);
             mm_jet_index->at(iconfig) = jet_index;
             TLorentzVector new_jet, old_jet;
-            old_jet.SetPtEtaPhiM(jets_pt->at(jet_index),
-                                 jets_eta->at(jet_index),
-                                 jets_phi->at(jet_index),
-                                 jets_m->at(jet_index));
+	    if(jet_index >= 0 && jet_index < static_cast<int>(jets_pt->size())){
+	      old_jet.SetPtEtaPhiM(jets_pt->at(jet_index),
+				   jets_eta->at(jet_index),
+				   jets_phi->at(jet_index),
+				   jets_m->at(jet_index));
+	    }else{
+	      old_jet.SetXYZM(0., 0., 0., 0.);
+	    }
             new_jet = old_jet + (new_lep-old_lep);
             mm_jet_pt->at(iconfig) = new_jet.Pt();
             mm_jet_eta->at(iconfig) = new_jet.Eta();
             mm_jet_phi->at(iconfig) = new_jet.Phi();
             mm_jet_m->at(iconfig) = new_jet.M();
             mm_jet_islep->at(iconfig) = lep_index >= 0;
-            if(lep_index >= 0 && !jets_islep->at(jet_index)){
+            if(lep_index >= 0 && jet_index >= 0 && jet_index < static_cast<int>(jets_islep->size()) && !jets_islep->at(jet_index)){
               //Jet became a lepton
               mm_njets->at(iconfig) = njets-1;
               if(jets_csv->at(jet_index) > 0.8) mm_nbm->at(iconfig) = nbm-1;
               else mm_nbm->at(iconfig) = nbm;
-            }else{
+            }else if(jet_index >= static_cast<int>(jets_islep->size())){
+              //Added a jet (probably)
+              mm_njets->at(iconfig) = njets+1;
+              mm_nbm->at(iconfig) = nbm;
+	    }else{
               //Jet is not a lepton or already was a lepton
               mm_njets->at(iconfig) = njets;
               mm_nbm->at(iconfig) = nbm;
@@ -468,6 +477,15 @@ int main(int argc, char *argv[]){
                 mm_ht->at(iconfig) += lv.Pt();
               }
             }
+	    if(jet_index >= static_cast<int>(jets_pt->size())){
+	      //Have new jet to add
+	      lv.SetPtEtaPhiM(mm_jet_pt->at(iconfig), mm_jet_eta->at(iconfig),
+			      mm_jet_phi->at(iconfig), mm_jet_m->at(iconfig));
+	      pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
+	      jets_with_lep.push_back(pj);
+	      if(!mm_jet_islep->at(iconfig)) jets_no_lep.push_back(pj);
+	    }
+
             ClusterSequence cs_with_lep(jets_with_lep, jd), cs_no_lep(jets_no_lep, jd);
             fjets_with_lep = cs_with_lep.inclusive_jets();
             fjets_no_lep = cs_no_lep.inclusive_jets();

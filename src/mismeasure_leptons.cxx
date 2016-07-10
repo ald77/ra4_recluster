@@ -24,11 +24,31 @@ using namespace std;
 using namespace fastjet;
 
 namespace{
+  struct Scenario{
+    Scenario(float p, float a, float b):
+      p_(p),
+      a_(a),
+      b_(b){
+    }
+    float p_, a_, b_;
+  };
+
   string input_file_path = "";
   string output_file_path = "";
-  set<float> p_vals = {0.01, 0.001, 0.0001};
-  set<float> a_vals = {1., 3., 10.};
-  set<float> b_vals = {0., 100.};
+
+  vector<Scenario> scenarios{
+    {0., 1., 0.},
+      {0.01, 1., 50.},
+        {0.01, 3., 0.},
+          {0.01, 10., 0.},
+            {0.001, 1., 50.},
+              {0.001, 3., 0.},
+                {0.001, 10., 0.},
+                  {0.0001, 1., 50.},
+                    {0.0001, 3., 0.},
+                      {0.0001, 10., 0.},
+                        {0.01, 1.3, 0.}
+  };
 
   TRandom3 prng(3556329863);
 
@@ -114,26 +134,24 @@ int main(int argc, char *argv[]){
   TTree *out_treeglobal = in_treeglobal->CloneTree(0);
   in_treeglobal->CopyAddresses(out_treeglobal);
 
-  size_t num_configs = p_vals.size() * a_vals.size() * b_vals.size();
+  size_t num_configs = scenarios.size();
+
   vector<float> *p_vec = nullptr, *a_vec = nullptr, *b_vec = nullptr;
   out_treeglobal->Branch("p", &p_vec);
   out_treeglobal->Branch("a", &a_vec);
   out_treeglobal->Branch("b", &b_vec);
 
-  size_t iconfig = static_cast<size_t>(-1);
   p_vec->resize(num_configs);
   a_vec->resize(num_configs);
   b_vec->resize(num_configs);
-  for(auto p: p_vals){
-    for(auto a: a_vals){
-      for(auto b: b_vals){
-	++iconfig;
 
-	p_vec->at(iconfig) = p;
-	a_vec->at(iconfig) = a;
-	b_vec->at(iconfig) = b;
-      }
-    }
+  size_t iconfig = static_cast<size_t>(-1);
+  for(const auto &scenario: scenarios){
+    ++iconfig;
+
+    p_vec->at(iconfig) = scenario.p_;
+    a_vec->at(iconfig) = scenario.a_;
+    b_vec->at(iconfig) = scenario.b_;
   }
 
   int num_entries = in_treeglobal->GetEntries();
@@ -142,7 +160,7 @@ int main(int argc, char *argv[]){
     out_treeglobal->Fill();
   }
   out_treeglobal->Write();
-  
+
   TTree *in_tree = static_cast<TTree*>(input_file.Get("tree"));
   if(in_tree == nullptr) ERROR("No tree in input file");
 
@@ -301,233 +319,232 @@ int main(int argc, char *argv[]){
     in_tree->GetEntry(event);
 
     iconfig = -1;
-    for(auto p: p_vals){
-      for(auto a: a_vals){
-	for(auto b: b_vals){
-	  ++iconfig;
+    for(const auto &scenario: scenarios){
+      float p = scenario.p_;
+      float a = scenario.a_;
+      float b = scenario.b_;
+      ++iconfig;
 
-	  //Pick a lepton to modify
-	  int ntot = mus_pt->size() + els_pt->size();
-	  vint.clear();
-	  for(int i = 0; i < ntot; ++i){
-	    if(prng.Uniform() < p) vint.push_back(i);
-	  }
-	  int mod_lep = -1;
-	  if(vint.size()>=1){
-	    mod_lep = vint.at(prng.Integer(vint.size()));
-	  }
+      //Pick a lepton to modify
+      int ntot = mus_pt->size() + els_pt->size();
+      vint.clear();
+      for(int i = 0; i < ntot; ++i){
+        if(prng.Uniform() < p) vint.push_back(i);
+      }
+      int mod_lep = -1;
+      if(vint.size()>=1){
+        mod_lep = vint.at(prng.Integer(vint.size()));
+      }
 
-	  if(mod_lep < 0){
-	    //Event unchanged
-	    mm->at(iconfig) = false;
-	    mm_jet_index->at(iconfig) = -1;
-	    mm_lep_index->at(iconfig) = -1;
-	    mm_mu_index->at(iconfig) = -1;
-	    mm_el_index->at(iconfig) = -1;
-	    mm_njets->at(iconfig) = njets;
-	    mm_nleps->at(iconfig) = nleps;
-	    mm_nmus->at(iconfig) = nmus;
-	    mm_nels->at(iconfig) = nels;
-	    mm_jet_pt->at(iconfig) = -1.;
-	    mm_jet_eta->at(iconfig) = 0.;
-	    mm_jet_phi->at(iconfig) = 0.;
-	    mm_jet_m->at(iconfig) = -1.;
-	    mm_jet_islep->at(iconfig) = false;
-	    mm_lep_pt->at(iconfig) = -1.;
-	    mm_mu_pt->at(iconfig) = -1.;
-	    mm_el_pt->at(iconfig) = -1.;
-	    mm_mu_miniso->at(iconfig) = -1.;
-	    mm_el_miniso->at(iconfig) = -1.;
-	    mm_mt->at(iconfig) = mt;
-	    mm_ht->at(iconfig) = ht;
-	    mm_nbm->at(iconfig) = nbm;
-	    mm_met->at(iconfig) = met;
-	    mm_met_phi->at(iconfig) = met_phi;
-	    mm_mj14_lep->at(iconfig) = mj14;
-	    mm_mj14_nolep->at(iconfig) = 0.;
+      if(mod_lep < 0){
+        //Event unchanged
+        mm->at(iconfig) = false;
+        mm_jet_index->at(iconfig) = -1;
+        mm_lep_index->at(iconfig) = -1;
+        mm_mu_index->at(iconfig) = -1;
+        mm_el_index->at(iconfig) = -1;
+        mm_njets->at(iconfig) = njets;
+        mm_nleps->at(iconfig) = nleps;
+        mm_nmus->at(iconfig) = nmus;
+        mm_nels->at(iconfig) = nels;
+        mm_jet_pt->at(iconfig) = -1.;
+        mm_jet_eta->at(iconfig) = 0.;
+        mm_jet_phi->at(iconfig) = 0.;
+        mm_jet_m->at(iconfig) = -1.;
+        mm_jet_islep->at(iconfig) = false;
+        mm_lep_pt->at(iconfig) = -1.;
+        mm_mu_pt->at(iconfig) = -1.;
+        mm_el_pt->at(iconfig) = -1.;
+        mm_mu_miniso->at(iconfig) = -1.;
+        mm_el_miniso->at(iconfig) = -1.;
+        mm_mt->at(iconfig) = mt;
+        mm_ht->at(iconfig) = ht;
+        mm_nbm->at(iconfig) = nbm;
+        mm_met->at(iconfig) = met;
+        mm_met_phi->at(iconfig) = met_phi;
+        mm_mj14_lep->at(iconfig) = mj14;
+        mm_mj14_nolep->at(iconfig) = 0.;
 
-	    jets_no_lep.clear();
-    	    for(size_t i = 0; i < jets_pt->size(); ++i){
-	      bool pass_jet = jets_pt->at(i) > 30. && fabs(jets_eta->at(i)) <= 2.4;
-	      bool pass_lep = jets_islep->at(i);
-	      if(!pass_jet || pass_lep) continue;
-	      lv.SetPtEtaPhiM(jets_pt->at(i),
-			      jets_eta->at(i),
-			      jets_phi->at(i),
-			      jets_m->at(i));
-	      pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
-	      jets_no_lep.push_back(pj);
-	    }
+        jets_no_lep.clear();
+        for(size_t i = 0; i < jets_pt->size(); ++i){
+          bool pass_jet = jets_pt->at(i) > 30. && fabs(jets_eta->at(i)) <= 2.4;
+          bool pass_lep = jets_islep->at(i);
+          if(!pass_jet || pass_lep) continue;
+          lv.SetPtEtaPhiM(jets_pt->at(i),
+                          jets_eta->at(i),
+                          jets_phi->at(i),
+                          jets_m->at(i));
+          pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
+          jets_no_lep.push_back(pj);
+        }
 
-	    ClusterSequence cs_no_lep(jets_no_lep, jd);
-	    fjets_no_lep = cs_no_lep.inclusive_jets();
-	    for(const auto &fjet: fjets_no_lep){
-	      mm_mj14_nolep->at(iconfig) += fjet.m();
-	    }
-	  }else{
-            //Event changed
-	    mm->at(iconfig) = true;
+        ClusterSequence cs_no_lep(jets_no_lep, jd);
+        fjets_no_lep = cs_no_lep.inclusive_jets();
+        for(const auto &fjet: fjets_no_lep){
+          mm_mj14_nolep->at(iconfig) += fjet.m();
+        }
+      }else{
+        //Event changed
+        mm->at(iconfig) = true;
 
-            //Pick a lepton
-            int lep_type;
-            float old_pt, eta, phi, old_miniso;
-            if(mod_lep < static_cast<int>(mus_pt->size())){
-              lep_type = 13;
-              old_pt = mus_pt->at(mod_lep);
-              eta = mus_eta->at(mod_lep);
-              phi = mus_phi->at(mod_lep);
-              old_miniso = mus_miniso->at(mod_lep);
-              mm_mu_index->at(iconfig) = mod_lep;
-              mm_el_index->at(iconfig) = -1;
-            }else{
-              mod_lep -= mus_pt->size();
-              lep_type = 11;
-              old_pt = els_pt->at(mod_lep);
-              eta = els_eta->at(mod_lep);
-              phi = els_phi->at(mod_lep);
-              old_miniso = els_miniso->at(mod_lep);
-              mm_mu_index->at(iconfig) = -1;
-              mm_el_index->at(iconfig) = mod_lep;
-            }
+        //Pick a lepton
+        int lep_type;
+        float old_pt, eta, phi, old_miniso;
+        if(mod_lep < static_cast<int>(mus_pt->size())){
+          lep_type = 13;
+          old_pt = mus_pt->at(mod_lep);
+          eta = mus_eta->at(mod_lep);
+          phi = mus_phi->at(mod_lep);
+          old_miniso = mus_miniso->at(mod_lep);
+          mm_mu_index->at(iconfig) = mod_lep;
+          mm_el_index->at(iconfig) = -1;
+        }else{
+          mod_lep -= mus_pt->size();
+          lep_type = 11;
+          old_pt = els_pt->at(mod_lep);
+          eta = els_eta->at(mod_lep);
+          phi = els_phi->at(mod_lep);
+          old_miniso = els_miniso->at(mod_lep);
+          mm_mu_index->at(iconfig) = -1;
+          mm_el_index->at(iconfig) = mod_lep;
+        }
 
-            //Modify the lepton
-            float new_pt = a*old_pt+b;
-            TLorentzVector new_lep, old_lep;
-            new_lep.SetPtEtaPhiM(new_pt, eta, phi, 0.);
-            old_lep.SetPtEtaPhiM(old_pt, eta, phi, 0.);
-            float new_miniso = old_miniso * (old_pt/new_pt) * (Area(new_pt)/Area(old_pt));
-            int lep_index = abs(lep_type)==11 && !els_sigid->at(mod_lep) ? -1
-	      : abs(lep_type)==13 && !mus_sigid->at(mod_lep) ? -1
-	      : FindLep(lep_type, new_pt, new_miniso, old_pt, eta, phi,
-		       *leps_pt, *leps_eta, *leps_phi, *leps_id);
-            mm_lep_index->at(iconfig) = lep_index;
-            if(lep_index >= 0){
-              mm_lep_pt->at(iconfig) = new_pt;
-            }else{
-              mm_lep_pt->at(iconfig) = -1;
-	    }
-            if(lep_type==11){
-              mm_el_pt->at(iconfig) = new_pt;
-              mm_el_miniso->at(iconfig) = new_miniso;
-              if(lep_index >= static_cast<int>(leps_pt->size())){
-		mm_nels->at(iconfig) = nels+1;
-		mm_nleps->at(iconfig) = nleps+1;
-	      }else{
-		mm_nels->at(iconfig) = nels;
-		mm_nleps->at(iconfig) = nleps;
-	      }
-              mm_mu_pt->at(iconfig) = -1.;
-              mm_mu_miniso->at(iconfig) = -1.;
-              mm_nmus->at(iconfig) = nmus;
-            }else{
-              mm_el_pt->at(iconfig) = -1.;
-              mm_el_miniso->at(iconfig) = -1.;
-              mm_nels->at(iconfig) = nels;
-              mm_mu_pt->at(iconfig) = new_pt;
-              mm_mu_miniso->at(iconfig) = new_miniso;
-              if(lep_index >= static_cast<int>(leps_pt->at(iconfig))){
-		mm_nmus->at(iconfig) = nmus+1;
-		mm_nleps->at(iconfig) = nleps+1;
-              }else{
-		mm_nmus->at(iconfig) = nmus;
-		mm_nleps->at(iconfig) = nleps;
-	      }
-            }
+        //Modify the lepton
+        float new_pt = a*old_pt+b;
+        TLorentzVector new_lep, old_lep;
+        new_lep.SetPtEtaPhiM(new_pt, eta, phi, 0.);
+        old_lep.SetPtEtaPhiM(old_pt, eta, phi, 0.);
+        float new_miniso = old_miniso * (old_pt/new_pt) * (Area(new_pt)/Area(old_pt));
+        int lep_index = abs(lep_type)==11 && !els_sigid->at(mod_lep) ? -1
+          : abs(lep_type)==13 && !mus_sigid->at(mod_lep) ? -1
+          : FindLep(lep_type, new_pt, new_miniso, old_pt, eta, phi,
+                    *leps_pt, *leps_eta, *leps_phi, *leps_id);
+        mm_lep_index->at(iconfig) = lep_index;
+        if(lep_index >= 0){
+          mm_lep_pt->at(iconfig) = new_pt;
+        }else{
+          mm_lep_pt->at(iconfig) = -1;
+        }
+        if(lep_type==11){
+          mm_el_pt->at(iconfig) = new_pt;
+          mm_el_miniso->at(iconfig) = new_miniso;
+          if(lep_index >= static_cast<int>(leps_pt->size())){
+            mm_nels->at(iconfig) = nels+1;
+            mm_nleps->at(iconfig) = nleps+1;
+          }else{
+            mm_nels->at(iconfig) = nels;
+            mm_nleps->at(iconfig) = nleps;
+          }
+          mm_mu_pt->at(iconfig) = -1.;
+          mm_mu_miniso->at(iconfig) = -1.;
+          mm_nmus->at(iconfig) = nmus;
+        }else{
+          mm_el_pt->at(iconfig) = -1.;
+          mm_el_miniso->at(iconfig) = -1.;
+          mm_nels->at(iconfig) = nels;
+          mm_mu_pt->at(iconfig) = new_pt;
+          mm_mu_miniso->at(iconfig) = new_miniso;
+          if(lep_index >= static_cast<int>(leps_pt->size())){
+            mm_nmus->at(iconfig) = nmus+1;
+            mm_nleps->at(iconfig) = nleps+1;
+          }else{
+            mm_nmus->at(iconfig) = nmus;
+            mm_nleps->at(iconfig) = nleps;
+          }
+        }
 
-            //Modify associated jet
-            int jet_index = FindJet(new_pt, eta, phi, lep_index>=0 && lep_index<static_cast<int>(leps_pt->size()),
-                                    *jets_eta, *jets_phi, *jets_islep);
-            mm_jet_index->at(iconfig) = jet_index;
-            TLorentzVector new_jet, old_jet;
-	    if(jet_index >= 0 && jet_index < static_cast<int>(jets_pt->size())){
-	      old_jet.SetPtEtaPhiM(jets_pt->at(jet_index),
-				   jets_eta->at(jet_index),
-				   jets_phi->at(jet_index),
-				   jets_m->at(jet_index));
-	    }else{
-	      old_jet.SetXYZM(0., 0., 0., 0.);
-	    }
-            new_jet = old_jet + (new_lep-old_lep);
-            mm_jet_pt->at(iconfig) = new_jet.Pt();
-            mm_jet_eta->at(iconfig) = new_jet.Eta();
-            mm_jet_phi->at(iconfig) = new_jet.Phi();
-            mm_jet_m->at(iconfig) = new_jet.M();
-            mm_jet_islep->at(iconfig) = lep_index >= 0;
-            if(lep_index >= 0 && jet_index >= 0 && jet_index < static_cast<int>(jets_islep->size()) && !jets_islep->at(jet_index)){
-              //Jet became a lepton
-              mm_njets->at(iconfig) = njets-1;
-              if(jets_csv->at(jet_index) > 0.8) mm_nbm->at(iconfig) = nbm-1;
-              else mm_nbm->at(iconfig) = nbm;
-            }else if(jet_index >= static_cast<int>(jets_islep->size())){
-              //Added a jet (probably)
-              mm_njets->at(iconfig) = njets+1;
-              mm_nbm->at(iconfig) = nbm;
-	    }else{
-              //Jet is not a lepton or already was a lepton
-              mm_njets->at(iconfig) = njets;
-              mm_nbm->at(iconfig) = nbm;
-            }
+        //Modify associated jet
+        int jet_index = FindJet(new_pt, eta, phi, lep_index>=0 && lep_index<static_cast<int>(leps_pt->size()),
+                                *jets_eta, *jets_phi, *jets_islep);
+        mm_jet_index->at(iconfig) = jet_index;
+        TLorentzVector new_jet, old_jet;
+        if(jet_index >= 0 && jet_index < static_cast<int>(jets_pt->size())){
+          old_jet.SetPtEtaPhiM(jets_pt->at(jet_index),
+                               jets_eta->at(jet_index),
+                               jets_phi->at(jet_index),
+                               jets_m->at(jet_index));
+        }else{
+          old_jet.SetXYZM(0., 0., 0., 0.);
+        }
+        new_jet = old_jet + (new_lep-old_lep);
+        mm_jet_pt->at(iconfig) = new_jet.Pt();
+        mm_jet_eta->at(iconfig) = new_jet.Eta();
+        mm_jet_phi->at(iconfig) = new_jet.Phi();
+        mm_jet_m->at(iconfig) = new_jet.M();
+        mm_jet_islep->at(iconfig) = lep_index >= 0;
+        if(lep_index >= 0 && jet_index >= 0 && jet_index < static_cast<int>(jets_islep->size()) && !jets_islep->at(jet_index)){
+          //Jet became a lepton
+          mm_njets->at(iconfig) = njets-1;
+          if(jets_csv->at(jet_index) > 0.8) mm_nbm->at(iconfig) = nbm-1;
+          else mm_nbm->at(iconfig) = nbm;
+        }else if(jet_index >= static_cast<int>(jets_islep->size())){
+          //Added a jet (probably)
+          mm_njets->at(iconfig) = njets+1;
+          mm_nbm->at(iconfig) = nbm;
+        }else{
+          //Jet is not a lepton or already was a lepton
+          mm_njets->at(iconfig) = njets;
+          mm_nbm->at(iconfig) = nbm;
+        }
 
-            //Recompute HT and MJ
-            mm_ht->at(iconfig) = 0.;
-	    jets_with_lep.clear();
-	    jets_no_lep.clear();
-            for(size_t i = 0; i < jets_pt->size(); ++i){
-	      bool pass_lep;
-              if(static_cast<int>(i) != jet_index){
-                lv.SetPtEtaPhiM(jets_pt->at(i), jets_eta->at(i),
-                                jets_phi->at(i), jets_m->at(i));
-		pass_lep = jets_islep->at(i);
-              }else{
-                lv = new_jet;
-		pass_lep = mm_jet_islep->at(iconfig);
-              }
-              bool pass_jet = lv.Pt()>30. && fabs(lv.Eta())<=2.4;
-              if(!(pass_jet || pass_lep)) continue;
-              pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
+        //Recompute HT and MJ
+        mm_ht->at(iconfig) = 0.;
+        jets_with_lep.clear();
+        jets_no_lep.clear();
+        for(size_t i = 0; i < jets_pt->size(); ++i){
+          bool pass_lep;
+          if(static_cast<int>(i) != jet_index){
+            lv.SetPtEtaPhiM(jets_pt->at(i), jets_eta->at(i),
+                            jets_phi->at(i), jets_m->at(i));
+            pass_lep = jets_islep->at(i);
+          }else{
+            lv = new_jet;
+            pass_lep = mm_jet_islep->at(iconfig);
+          }
+          bool pass_jet = lv.Pt()>30. && fabs(lv.Eta())<=2.4;
+          if(!(pass_jet || pass_lep)) continue;
+          pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
 
-              jets_with_lep.push_back(pj);
-              if(pass_jet && !pass_lep){
-                jets_no_lep.push_back(pj);
-                mm_ht->at(iconfig) += lv.Pt();
-              }
-            }
-	    if(jet_index >= static_cast<int>(jets_pt->size())){
-	      //Have new jet to add
-	      lv.SetPtEtaPhiM(mm_jet_pt->at(iconfig), mm_jet_eta->at(iconfig),
-			      mm_jet_phi->at(iconfig), mm_jet_m->at(iconfig));
-	      pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
-	      jets_with_lep.push_back(pj);
-	      if(!mm_jet_islep->at(iconfig)) jets_no_lep.push_back(pj);
-	    }
+          jets_with_lep.push_back(pj);
+          if(pass_jet && !pass_lep){
+            jets_no_lep.push_back(pj);
+            mm_ht->at(iconfig) += lv.Pt();
+          }
+        }
+        if(jet_index >= static_cast<int>(jets_pt->size())){
+          //Have new jet to add
+          lv.SetPtEtaPhiM(mm_jet_pt->at(iconfig), mm_jet_eta->at(iconfig),
+                          mm_jet_phi->at(iconfig), mm_jet_m->at(iconfig));
+          pj = PseudoJet(lv.Px(), lv.Py(), lv.Pz(), lv.E());
+          jets_with_lep.push_back(pj);
+          if(!mm_jet_islep->at(iconfig)) jets_no_lep.push_back(pj);
+        }
 
-            ClusterSequence cs_with_lep(jets_with_lep, jd), cs_no_lep(jets_no_lep, jd);
-            fjets_with_lep = cs_with_lep.inclusive_jets();
-            fjets_no_lep = cs_no_lep.inclusive_jets();
-            mm_mj14_lep->at(iconfig) = 0.;
-            for(const auto &fjet: fjets_with_lep) mm_mj14_lep->at(iconfig) += fjet.m();
-            mm_mj14_nolep->at(iconfig) = 0.;
-            for(const auto &fjet: fjets_no_lep) mm_mj14_nolep->at(iconfig) += fjet.m();
+        ClusterSequence cs_with_lep(jets_with_lep, jd), cs_no_lep(jets_no_lep, jd);
+        fjets_with_lep = cs_with_lep.inclusive_jets();
+        fjets_no_lep = cs_no_lep.inclusive_jets();
+        mm_mj14_lep->at(iconfig) = 0.;
+        for(const auto &fjet: fjets_with_lep) mm_mj14_lep->at(iconfig) += fjet.m();
+        mm_mj14_nolep->at(iconfig) = 0.;
+        for(const auto &fjet: fjets_no_lep) mm_mj14_nolep->at(iconfig) += fjet.m();
 
-            //Modify MET and mT
-            float met_x = met*cos(met_phi) + (old_lep.Px()-new_lep.Px());
-            float met_y = met*sin(met_phi) + (old_lep.Py()-new_lep.Py());
-	    float lep_pt = new_lep.Pt(), lep_phi = new_lep.Phi();
-	    for(size_t i = 0; i < leps_pt->size(); ++i){
-	      if(static_cast<int>(i) == mm_lep_index->at(iconfig)) continue;
-	      if(leps_pt->at(i) > lep_pt){
-		lep_pt = leps_pt->at(i);
-		lep_phi = leps_phi->at(i);
-	      }
-	    }
-            mm_met->at(iconfig) = hypot(met_x, met_y);
-            mm_met_phi->at(iconfig) = atan2(met_y, met_x);
-            mm_mt->at(iconfig) = mm_nleps->at(iconfig) >= 1
-	      ? MT(lep_pt, lep_phi,
-		   mm_met->at(iconfig), mm_met_phi->at(iconfig))
-	      : -999.;
-	  }
-	}
+        //Modify MET and mT
+        float met_x = met*cos(met_phi) + (old_lep.Px()-new_lep.Px());
+        float met_y = met*sin(met_phi) + (old_lep.Py()-new_lep.Py());
+        float lep_pt = new_lep.Pt(), lep_phi = new_lep.Phi();
+        for(size_t i = 0; i < leps_pt->size(); ++i){
+          if(static_cast<int>(i) == mm_lep_index->at(iconfig)) continue;
+          if(leps_pt->at(i) > lep_pt){
+            lep_pt = leps_pt->at(i);
+            lep_phi = leps_phi->at(i);
+          }
+        }
+        mm_met->at(iconfig) = hypot(met_x, met_y);
+        mm_met_phi->at(iconfig) = atan2(met_y, met_x);
+        mm_mt->at(iconfig) = mm_nleps->at(iconfig) >= 1
+          ? MT(lep_pt, lep_phi,
+               mm_met->at(iconfig), mm_met_phi->at(iconfig))
+          : -999.;
       }
     }
     out_tree->Fill();
@@ -546,9 +563,9 @@ void GetOptions(int argc, char *argv[]){
     char opt = -1;
     int option_index;
     opt = getopt_long(argc, argv, "i:o:", long_options, &option_index);
-    
+
     if( opt == -1) break;
-    
+
     string optname;
     switch(opt){
     case 'i':
@@ -570,4 +587,3 @@ void GetOptions(int argc, char *argv[]){
     }
   }
 }
-

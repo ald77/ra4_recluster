@@ -26,9 +26,9 @@ using namespace fastjet;
 namespace{
   string input_file_path = "";
   string output_file_path = "";
-  set<float> p_vals = {0.001, 0.0001, 0.00001};
-  set<float> a_vals = {1., 5., 10.};
-  set<float> b_vals = {0., 100., 400.};
+  set<float> p_vals = {0.01, 0.001, 0.0001};
+  set<float> a_vals = {1., 3., 10.};
+  set<float> b_vals = {0., 100.};
 
   TRandom3 prng(3556329863);
 

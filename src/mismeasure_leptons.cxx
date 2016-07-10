@@ -149,7 +149,9 @@ int main(int argc, char *argv[]){
   float mt = 0., ht = 0., met = 0., met_phi = 0., mj14 = 0.;
   vector<float> *jets_pt = nullptr, *jets_eta = nullptr,
     *jets_phi = nullptr, *jets_m = nullptr, *jets_csv = nullptr;
-  vector<bool> * jets_islep = nullptr;
+  vector<bool> *jets_islep = nullptr,
+    *els_sigid = nullptr,
+    *mus_sigid = nullptr;
   int nels = 0, nmus = 0, nleps = 0;
   int njets = 0, nbm = 0;
   vector<float> *mus_pt = nullptr, *mus_eta = nullptr,
@@ -164,8 +166,10 @@ int main(int argc, char *argv[]){
     *b_leps_phi = nullptr, *b_leps_id = nullptr,
     *b_mus_pt = nullptr, *b_mus_eta = nullptr,
     *b_mus_phi = nullptr, *b_mus_miniso = nullptr,
+    *b_mus_sigid = nullptr,
     *b_els_pt = nullptr, *b_els_eta = nullptr,
-    *b_els_phi = nullptr, *b_els_miniso = nullptr;
+    *b_els_phi = nullptr, *b_els_miniso = nullptr,
+    *b_els_sigid = nullptr;
 
   in_tree->SetBranchAddress("jets_pt", &jets_pt, &b_jets_pt);
   in_tree->SetBranchAddress("jets_eta", &jets_eta, &b_jets_eta);
@@ -181,10 +185,12 @@ int main(int argc, char *argv[]){
   in_tree->SetBranchAddress("mus_eta", &mus_eta, &b_mus_eta);
   in_tree->SetBranchAddress("mus_phi", &mus_phi, &b_mus_phi);
   in_tree->SetBranchAddress("mus_miniso", &mus_miniso, &b_mus_miniso);
+  in_tree->SetBranchAddress("mus_sigid", &mus_sigid, &b_mus_sigid);
   in_tree->SetBranchAddress("els_pt", &els_pt, &b_els_pt);
   in_tree->SetBranchAddress("els_eta", &els_eta, &b_els_eta);
   in_tree->SetBranchAddress("els_phi", &els_phi, &b_els_phi);
   in_tree->SetBranchAddress("els_miniso", &els_miniso, &b_els_miniso);
+  in_tree->SetBranchAddress("els_sigid", &els_sigid, &b_els_sigid);
   in_tree->SetBranchAddress("njets", &njets);
   in_tree->SetBranchAddress("nleps", &nleps);
   in_tree->SetBranchAddress("nmus", &nmus);
@@ -390,22 +396,26 @@ int main(int argc, char *argv[]){
             new_lep.SetPtEtaPhiM(new_pt, eta, phi, 0.);
             old_lep.SetPtEtaPhiM(old_pt, eta, phi, 0.);
             float new_miniso = old_miniso * (old_pt/new_pt) * (Area(new_pt)/Area(old_pt));
-            int lep_index = FindLep(lep_type, new_pt, new_miniso,
-                                    old_pt, eta, phi,
-                                    *leps_pt, *leps_eta, *leps_phi, *leps_id);
+            int lep_index = abs(lep_type)==11 && !els_sigid->at(mod_lep) ? -1
+	      : abs(lep_type)==13 && !mus_sigid->at(mod_lep) ? -1
+	      : FindLep(lep_type, new_pt, new_miniso, old_pt, eta, phi,
+		       *leps_pt, *leps_eta, *leps_phi, *leps_id);
             mm_lep_index->at(iconfig) = lep_index;
             if(lep_index >= 0){
-              mm_nleps->at(iconfig) = nleps+1;
               mm_lep_pt->at(iconfig) = new_pt;
             }else{
-              mm_nleps->at(iconfig) = nleps;
               mm_lep_pt->at(iconfig) = -1;
-            }
+	    }
             if(lep_type==11){
               mm_el_pt->at(iconfig) = new_pt;
               mm_el_miniso->at(iconfig) = new_miniso;
-              if(lep_index >= 0) mm_nels->at(iconfig) = nels+1;
-              else mm_nels->at(iconfig) = nels;
+              if(lep_index >= static_cast<int>(leps_pt->size())){
+		mm_nels->at(iconfig) = nels+1;
+		mm_nleps->at(iconfig) = nleps+1;
+	      }else{
+		mm_nels->at(iconfig) = nels;
+		mm_nleps->at(iconfig) = nleps;
+	      }
               mm_mu_pt->at(iconfig) = -1.;
               mm_mu_miniso->at(iconfig) = -1.;
               mm_nmus->at(iconfig) = nmus;
@@ -415,8 +425,13 @@ int main(int argc, char *argv[]){
               mm_nels->at(iconfig) = nels;
               mm_mu_pt->at(iconfig) = new_pt;
               mm_mu_miniso->at(iconfig) = new_miniso;
-              if(lep_index >= 0) mm_nmus->at(iconfig) = nmus+1;
-              else mm_nmus->at(iconfig) = nmus;
+              if(lep_index >= static_cast<int>(leps_pt->at(iconfig))){
+		mm_nmus->at(iconfig) = nmus+1;
+		mm_nleps->at(iconfig) = nleps+1;
+              }else{
+		mm_nmus->at(iconfig) = nmus;
+		mm_nleps->at(iconfig) = nleps;
+	      }
             }
 
             //Modify associated jet
